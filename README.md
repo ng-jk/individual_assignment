@@ -17,20 +17,23 @@ The earlier tabular UCI Heart Disease prototype has been replaced by an image pi
 
 ## Dataset
 
-Register for and download **CheXpert-v1.0-small** from Stanford:
+Register for and download **CheXpert v1.0** from Stanford. The loader accepts
+either the full-resolution release or `CheXpert-v1.0-small` when available:
 
 https://stanfordmlgroup.github.io/competitions/chexpert/
 
 Expected structure:
 
 ```text
-datasets/
-└── CheXpert-v1.0-small/
-    ├── train.csv
-    ├── valid.csv
-    ├── train/
-    └── valid/
+<CHEXPERT_ROOT>/
+├── train.csv
+├── valid.csv
+├── train/
+└── valid/
 ```
+
+The dataset may remain outside this repository. Pass its absolute extracted
+directory to `--dataset-dir`; do not copy the full release into Git.
 
 The program uses frontal images with Cardiomegaly labels `0` or `1` and excludes uncertain (`-1`) or missing labels. Splits are performed by patient identifier to prevent one patient's images appearing in multiple splits. See `DATASET.md` before downloading or training.
 
@@ -68,7 +71,7 @@ the generated images and outputs have no medical meaning.
 Use a limited sample on a CPU-only machine:
 
 ```powershell
-.\.venv\Scripts\python.exe train.py --dataset-dir datasets\CheXpert-v1.0-small --max-samples 2000 --epochs 2 --batch-size 8
+.\.venv\Scripts\python.exe train.py --dataset-dir "C:\path\to\CheXpert-v1.0" --max-samples 2000 --epochs 2 --batch-size 8
 ```
 
 This is a pipeline smoke test, not the final experiment.
@@ -76,7 +79,7 @@ This is a pipeline smoke test, not the final experiment.
 ## Recommended GPU training
 
 ```powershell
-python train.py --dataset-dir datasets/CheXpert-v1.0-small --epochs 10 --batch-size 32 --workers 2
+python train.py --dataset-dir /data/CheXpert-v1.0 --epochs 10 --batch-size 32 --workers 4 --train-full-backbone
 ```
 
 The script automatically uses CUDA when available. It writes the selected threshold, checkpoint, metrics, plots, and split statistics to `artifacts/vision/`.

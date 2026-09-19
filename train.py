@@ -28,7 +28,7 @@ from cardioexplain.vision_model import build_model, build_transforms, save_check
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset-dir", type=Path, required=True,
-                        help="Path to the extracted CheXpert-v1.0-small directory")
+                        help="Path to an extracted CheXpert v1.0 directory (full or small)")
     parser.add_argument("--output-dir", type=Path, default=Path("artifacts/vision"))
     parser.add_argument("--epochs", type=int, default=10)
     parser.add_argument("--batch-size", type=int, default=32)
