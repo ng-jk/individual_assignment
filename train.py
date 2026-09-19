@@ -41,6 +41,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--no-pretrained", action="store_true",
                         help="Skip ImageNet weights; useful only for offline pipeline tests")
     parser.add_argument("--train-full-backbone", action="store_true")
+    parser.add_argument("--no-amp", action="store_true",
+                        help="Disable CUDA mixed-precision training")
     parser.add_argument("--dataset-kind", choices=["chexpert", "synthetic_demo"],
                         default="chexpert",
                         help="Record whether this run uses real CheXpert or generated demo data")
@@ -53,24 +55,38 @@ def seed_everything(seed: int) -> None:
         torch.cuda.manual_seed_all(seed)
 
 
-def predict_loader(model: nn.Module, loader: DataLoader, device: torch.device):
+def predict_loader(model: nn.Module, loader: DataLoader, device: torch.device,
+                   use_amp: bool = False):
     model.eval(); targets: list[float] = []; probabilities: list[float] = []
     with torch.no_grad():
         for images, labels in loader:
-            logits = model(images.to(device)).reshape(-1)
+            images = images.to(device, non_blocking=True)
+            if device.type == "cuda":
+                images = images.contiguous(memory_format=torch.channels_last)
+            with torch.autocast(device_type=device.type, dtype=torch.float16,
+                                enabled=use_amp):
+                logits = model(images).reshape(-1)
             probabilities.extend(torch.sigmoid(logits).cpu().numpy().tolist())
             targets.extend(labels.numpy().tolist())
     return np.asarray(targets, dtype=int), np.asarray(probabilities, dtype=float)
 
 
 def train_epoch(model: nn.Module, loader: DataLoader, criterion, optimizer,
-                device: torch.device) -> float:
+                device: torch.device, scaler: torch.amp.GradScaler,
+                use_amp: bool = False) -> float:
     model.train(); loss_total = 0.0
     for images, labels in loader:
-        images = images.to(device); labels = labels.to(device)
+        images = images.to(device, non_blocking=True)
+        labels = labels.to(device, non_blocking=True)
+        if device.type == "cuda":
+            images = images.contiguous(memory_format=torch.channels_last)
         optimizer.zero_grad(set_to_none=True)
-        loss = criterion(model(images).reshape(-1), labels)
-        loss.backward(); optimizer.step()
+        with torch.autocast(device_type=device.type, dtype=torch.float16,
+                            enabled=use_amp):
+            loss = criterion(model(images).reshape(-1), labels)
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)
+        scaler.update()
         loss_total += loss.item() * len(labels)
     return loss_total / len(loader.dataset)
 
@@ -90,7 +106,10 @@ def main(argv: list[str] | None = None) -> None:
     seed_everything(args.seed)
     args.output_dir.mkdir(parents=True, exist_ok=True)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Device: {device}")
+    use_amp = device.type == "cuda" and not args.no_amp
+    if device.type == "cuda":
+        torch.backends.cudnn.benchmark = True
+    print(f"Device: {device}; mixed precision: {use_amp}")
     if device.type == "cpu":
         print("WARNING: CPU training is intended only for small smoke runs. Use a GPU for final training.")
 
@@ -110,12 +129,16 @@ def main(argv: list[str] | None = None) -> None:
     test_data = CheXpertCardiomegalyDataset(splits["test"], build_transforms(False))
     loader_args = {"batch_size": args.batch_size, "num_workers": args.workers,
                    "pin_memory": device.type == "cuda"}
+    if args.workers > 0:
+        loader_args.update({"persistent_workers": True, "prefetch_factor": 4})
     train_loader = DataLoader(training_data, shuffle=True, **loader_args)
     validation_loader = DataLoader(validation_data, shuffle=False, **loader_args)
     test_loader = DataLoader(test_data, shuffle=False, **loader_args)
 
     model = build_model(pretrained=not args.no_pretrained,
                         train_backbone=args.train_full_backbone).to(device)
+    if device.type == "cuda":
+        model = model.to(memory_format=torch.channels_last)
     trainable = [parameter for parameter in model.parameters() if parameter.requires_grad]
     optimizer = AdamW(trainable, lr=args.learning_rate, weight_decay=1e-4)
     positives = float(splits["train"]["target"].sum())
@@ -123,12 +146,14 @@ def main(argv: list[str] | None = None) -> None:
     if positives == 0 or negatives == 0:
         raise ValueError("Training split must contain both positive and negative examples")
     criterion = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([negatives / positives], device=device))
+    scaler = torch.amp.GradScaler("cuda", enabled=use_amp)
 
     best_state = None; best_f1 = -1.0; best_threshold = 0.5; stale_epochs = 0; history = []
     started = time.perf_counter()
     for epoch in range(1, args.epochs + 1):
-        loss = train_epoch(model, train_loader, criterion, optimizer, device)
-        validation_targets, validation_probabilities = predict_loader(model, validation_loader, device)
+        loss = train_epoch(model, train_loader, criterion, optimizer, device, scaler, use_amp)
+        validation_targets, validation_probabilities = predict_loader(
+            model, validation_loader, device, use_amp)
         threshold = choose_threshold(validation_targets, validation_probabilities)
         score = f1_score(validation_targets, validation_probabilities >= threshold, zero_division=0)
         history.append({"epoch": epoch, "train_loss": float(loss),
@@ -144,7 +169,7 @@ def main(argv: list[str] | None = None) -> None:
                 break
 
     model.load_state_dict(best_state)
-    test_targets, test_probabilities = predict_loader(model, test_loader, device)
+    test_targets, test_probabilities = predict_loader(model, test_loader, device, use_amp)
     metrics = classification_metrics(test_targets, test_probabilities, best_threshold)
     metrics["training_seconds"] = float(time.perf_counter() - started)
     metrics["device"] = str(device)
@@ -155,6 +180,7 @@ def main(argv: list[str] | None = None) -> None:
         "kind": args.dataset_kind,
         "dataset_directory": str(args.dataset_dir.resolve()),
         "pretrained_imagenet": not args.no_pretrained,
+        "mixed_precision": use_amp,
     }
     save_checkpoint(args.output_dir / "best_model.pt", model, best_threshold, metrics, history,
                     summary, data_provenance=data_provenance)

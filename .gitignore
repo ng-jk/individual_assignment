@@ -1,7 +1,45 @@
-.venv/
+# Python environments and generated caches
+/.venv/
+/venv/
+/env/
 __pycache__/
-.pytest_cache/
-.matplotlib/
-artifacts/
-datasets/
-*.pyc
+*.py[cod]
+*$py.class
+/.pytest_cache/
+/.matplotlib/
+/.mypy_cache/
+/.ruff_cache/
+/.coverage
+/htmlcov/
+
+# Build and packaging output
+/build/
+/dist/
+*.egg-info/
+
+# Private/local datasets and downloaded archives
+/CheXpert/
+/CheXpert.zip
+/dataset/
+/datasets/
+
+# Trained models, predictions, plots, and run output
+/artifacts/
+*.pt
+*.pth
+*.ckpt
+*.onnx
+
+# Locally downloaded transfer utilities
+/azcopy_linux_amd64_*/
+/azcopy*.tar.gz
+
+# Local configuration, secrets, logs, and editor files
+.env
+.env.*
+!.env.example
+*.log
+/.idea/
+/.vscode/
+.DS_Store
+Thumbs.db

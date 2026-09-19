@@ -28,6 +28,11 @@ def test_prepare_full_release_batches(tmp_path):
                 "Frontal/Lateral": "Frontal",
                 "Cardiomegaly": float(batch % 2),
             })
+        rows.append({
+            "Path": "CheXpert-v1.0/train/patient00002/study1/view1_lateral.jpg",
+            "Frontal/Lateral": "Lateral",
+            "Cardiomegaly": 1.0,
+        })
         csv_bytes = pd.DataFrame(rows).to_csv(index=False).encode("utf-8")
         bundle.writestr("CheXpert-v1.0 batch 1 (validate & csv)/train.csv", csv_bytes)
 
@@ -35,6 +40,9 @@ def test_prepare_full_release_batches(tmp_path):
     extracted_image = extracted / "patient00001/study1/view1_frontal.jpg"
     extracted_image.parent.mkdir(parents=True)
     extracted_image.write_bytes(image_bytes)
+    unused_image = extracted / "patient00002/study1/view1_lateral.jpg"
+    unused_image.parent.mkdir(parents=True)
+    unused_image.write_bytes(image_bytes)
 
     for batch, label, patient in [(3, "train 2", "patient20000"),
                                   (4, "train 3", "patient43018")]:
@@ -52,6 +60,9 @@ def test_prepare_full_release_batches(tmp_path):
 
     assert manifest["prepared_rows"] == 3
     assert manifest["missing_rows"] == 0
+    assert manifest["metadata_rows"] == 4
+    assert manifest["eligible_rows"] == 3
+    assert sum(batch["images"] for batch in manifest["batches"]) == 3
     frame = pd.read_csv(output / "train.csv")
     assert frame["Path"].tolist() == [
         "train/patient00001/study1/view1_frontal.jpg",

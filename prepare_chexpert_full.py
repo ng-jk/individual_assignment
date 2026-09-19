@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import io
 import json
+import math
 import os
 import re
 import zipfile
@@ -121,11 +122,14 @@ def _process_directory_chunk(files: list[str], source_dir: str, output_dir: str,
 
 def _chunks(items: list[str], count: int) -> list[list[str]]:
     count = max(1, min(count, len(items)))
-    return [items[index::count] for index in range(count)]
+    chunk_size = math.ceil(len(items) / count)
+    return [items[index:index + chunk_size]
+            for index in range(0, len(items), chunk_size)]
 
 
 def process_batch(source: Path, output_dir: Path, size: int, quality: int,
-                  workers: int, overwrite: bool) -> dict[str, object]:
+                  workers: int, overwrite: bool,
+                  required_paths: set[str] | None = None) -> dict[str, object]:
     if source.is_file():
         with zipfile.ZipFile(source) as bundle:
             items = [name for name in bundle.namelist()
@@ -138,8 +142,15 @@ def process_batch(source: Path, output_dir: Path, size: int, quality: int,
         worker = _process_directory_chunk
         worker_args = lambda chunk: (chunk, str(source), str(output_dir), size, quality, overwrite)
 
+    source_images = len(items)
+    if required_paths is not None:
+        items = [item for item in items
+                 if _relative_train_path(
+                     Path(item).relative_to(source).as_posix() if source.is_dir() else item
+                 ).as_posix() in required_paths]
     if not items:
-        raise ValueError(f"No images found in batch source: {source}")
+        return {"source": str(source.resolve()), "source_images": source_images,
+                "images": 0, "written": 0, "skipped": 0}
     totals = {"written": 0, "skipped": 0}
     with ProcessPoolExecutor(max_workers=max(1, workers)) as executor:
         futures = [executor.submit(worker, *worker_args(chunk))
@@ -148,7 +159,8 @@ def process_batch(source: Path, output_dir: Path, size: int, quality: int,
             result = future.result()
             totals["written"] += result["written"]
             totals["skipped"] += result["skipped"]
-    return {"source": str(source.resolve()), "images": len(items), **totals}
+    return {"source": str(source.resolve()), "source_images": source_images,
+            "images": len(items), **totals}
 
 
 def read_train_csv(batch_one: Path) -> pd.DataFrame:
@@ -181,13 +193,27 @@ def prepare(args: argparse.Namespace) -> dict[str, object]:
 
     batch_one = discover_batch_source(source_dir, 1)
     batch_sources = [discover_batch_source(source_dir, number) for number in args.batches]
-    frame = read_train_csv(batch_one)
+    source_frame = read_train_csv(batch_one)
+    required_columns = {"Cardiomegaly", "Frontal/Lateral"}
+    missing_columns = required_columns.difference(source_frame.columns)
+    if missing_columns:
+        raise ValueError(f"CheXpert train.csv is missing columns: {sorted(missing_columns)}")
+    frame = source_frame[
+        source_frame["Frontal/Lateral"].eq("Frontal")
+        & source_frame["Cardiomegaly"].isin([0.0, 1.0])
+    ].copy()
+    required_paths = set(frame["Path"])
+    print(
+        f"Preparing {len(frame)} eligible frontal images with certain cardiomegaly labels "
+        f"from {len(source_frame)} metadata rows",
+        flush=True,
+    )
 
     batch_results = []
     for number, source in zip(args.batches, batch_sources):
         print(f"Processing CheXpert training batch {number}: {source}", flush=True)
         result = process_batch(source, output_dir, args.size, args.quality,
-                               args.workers, args.overwrite)
+                               args.workers, args.overwrite, required_paths)
         result["batch"] = number
         batch_results.append(result)
         print(f"Completed batch {number}: {result}", flush=True)
@@ -208,7 +234,8 @@ def prepare(args: argparse.Namespace) -> dict[str, object]:
         "image_size": args.size,
         "jpeg_quality": args.quality,
         "batches": batch_results,
-        "metadata_rows": int(len(frame)),
+        "metadata_rows": int(len(source_frame)),
+        "eligible_rows": int(len(frame)),
         "prepared_rows": int(len(output_frame)),
         "missing_rows": missing,
         "incomplete": bool(missing),
