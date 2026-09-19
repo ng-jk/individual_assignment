@@ -35,6 +35,23 @@ Expected structure:
 The dataset may remain outside this repository. Pass its absolute extracted
 directory to `--dataset-dir`; do not copy the full release into Git.
 
+### Preparing Stanford's full-resolution batch release
+
+The current full release is split into one metadata/validation batch and three
+training-image batches. It can require more than 1 TB when fully extracted.
+Create a compact 224x224 version directly from the ZIPs instead:
+
+```bash
+python prepare_chexpert_full.py \
+  --source-dir /data/chexpertchestxrays-u20210408 \
+  --output-dir /data/CheXpert-v1.0-224 \
+  --workers 8
+```
+
+The command requires batches 1, 2, 3, and 4. It prefers an already extracted
+batch directory, otherwise it streams images from the corresponding ZIP. A
+rerun skips completed images, so interrupted preparation can be resumed.
+
 The program uses frontal images with Cardiomegaly labels `0` or `1` and excludes uncertain (`-1`) or missing labels. Splits are performed by patient identifier to prevent one patient's images appearing in multiple splits. See `DATASET.md` before downloading or training.
 
 ## Setup on Windows PowerShell
