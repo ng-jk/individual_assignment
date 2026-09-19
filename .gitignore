@@ -23,12 +23,15 @@ __pycache__/
 /dataset/
 /datasets/
 
-# Trained models, predictions, plots, and run output
-/artifacts/
+# Model files are ignored by default. The final vision artifact is explicitly
+# versioned below; per-image predictions remain local because they contain
+# CheXpert patient/path identifiers.
 *.pt
 *.pth
 *.ckpt
 *.onnx
+/artifacts/**/test_predictions.csv
+!/artifacts/vision/best_model.pt
 
 # Locally downloaded transfer utilities
 /azcopy_linux_amd64_*/

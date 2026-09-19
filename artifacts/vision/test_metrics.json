@@ -1,0 +1,25 @@
+{
+  "threshold": 0.32499999999999996,
+  "accuracy": 0.8850671140939598,
+  "precision": 0.9223001402524544,
+  "sensitivity_recall": 0.9238550154537791,
+  "specificity": 0.770885028949545,
+  "f1": 0.9230769230769231,
+  "roc_auc": 0.9342313235170054,
+  "pr_auc": 0.9744258996015953,
+  "brier_score": 0.09464120597150769,
+  "confusion_matrix": [
+    [
+      932,
+      277
+    ],
+    [
+      271,
+      3288
+    ]
+  ],
+  "samples": 4768,
+  "positive_samples": 3559,
+  "training_seconds": 157.4942828050007,
+  "device": "cuda"
+}
