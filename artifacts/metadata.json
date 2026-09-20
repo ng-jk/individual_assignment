@@ -1,0 +1,22 @@
+{
+  "version": "0.1.0",
+  "random_state": 42,
+  "test_fraction": 0.2,
+  "selected_model": "hist_gradient_boosting",
+  "feature_names": [
+    "age",
+    "sex",
+    "cp",
+    "trestbps",
+    "chol",
+    "fbs",
+    "restecg",
+    "thalach",
+    "exang",
+    "oldpeak",
+    "slope",
+    "ca",
+    "thal"
+  ],
+  "decision_threshold": 0.5
+}

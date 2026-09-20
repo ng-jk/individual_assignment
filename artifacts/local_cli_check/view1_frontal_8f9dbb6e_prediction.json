@@ -1,0 +1,42 @@
+{
+  "label": "Cardiomegaly",
+  "probability": 0.4048120677471161,
+  "threshold": 0.32499999999999996,
+  "classification": "above_threshold",
+  "device": "cpu",
+  "disclaimer": "Research and education only. This model is not a medical device and its output must not be used for diagnosis, treatment, or patient-care decisions.",
+  "input_image": "C:\\Users\\Admin\\School Project\\INT4203E.8CS1.AUG2026\\individual\\02_Code\\datasets\\synthetic-chexpert-demo\\train\\patient00019\\study1\\view1_frontal.png",
+  "checkpoint": "C:\\Users\\Admin\\School Project\\INT4203E.8CS1.AUG2026\\individual\\02_Code\\artifacts\\vision\\best_model.pt",
+  "explanation_image": "C:\\Users\\Admin\\School Project\\INT4203E.8CS1.AUG2026\\individual\\02_Code\\artifacts\\local_cli_check\\view1_frontal_8f9dbb6e_gradcam.png",
+  "model_test_metrics": {
+    "threshold": 0.32499999999999996,
+    "accuracy": 0.8850671140939598,
+    "precision": 0.9223001402524544,
+    "sensitivity_recall": 0.9238550154537791,
+    "specificity": 0.770885028949545,
+    "f1": 0.9230769230769231,
+    "roc_auc": 0.9342313235170054,
+    "pr_auc": 0.9744258996015953,
+    "brier_score": 0.09464120597150769,
+    "confusion_matrix": [
+      [
+        932,
+        277
+      ],
+      [
+        271,
+        3288
+      ]
+    ],
+    "samples": 4768,
+    "positive_samples": 3559,
+    "training_seconds": 157.4942828050007,
+    "device": "cuda"
+  },
+  "checkpoint_data_provenance": {
+    "kind": "chexpert",
+    "dataset_directory": "/home/ec2-user/individual_assignment/CheXpert/CheXpert-v1.0-224",
+    "pretrained_imagenet": true,
+    "mixed_precision": true
+  }
+}

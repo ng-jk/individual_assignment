@@ -1,0 +1,20 @@
+{
+  "train": {
+    "images": 42,
+    "patients": 42,
+    "positive_images": 21,
+    "positive_rate": 0.5
+  },
+  "validation": {
+    "images": 9,
+    "patients": 9,
+    "positive_images": 5,
+    "positive_rate": 0.5555555820465088
+  },
+  "test": {
+    "images": 9,
+    "patients": 9,
+    "positive_images": 4,
+    "positive_rate": 0.4444444477558136
+  }
+}

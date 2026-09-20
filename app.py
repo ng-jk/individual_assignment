@@ -13,7 +13,6 @@ from cardioexplain.vision_model import load_checkpoint
 st.set_page_config(page_title="CardioExplain Vision", page_icon="🫀", layout="wide")
 st.title("CardioExplain Vision")
 st.write("Explainable cardiomegaly screening from frontal chest X-rays")
-st.error("Research and education only. This system is not a medical device and must not be used for diagnosis, treatment, or patient-care decisions.")
 
 checkpoint_path = Path(os.getenv("CARDIOEXPLAIN_CHECKPOINT", "artifacts/vision/best_model.pt"))
 if not checkpoint_path.exists():
@@ -39,7 +38,6 @@ if data_provenance.get("kind") == "synthetic_demo":
     st.error("DEMONSTRATION CHECKPOINT: this model was trained on generated patterns, not real chest X-rays. Its output has no medical meaning.")
 uploaded = st.file_uploader("Upload a de-identified frontal chest X-ray",
                             type=["png", "jpg", "jpeg"])
-confirmed = st.checkbox("I confirm this is a de-identified frontal chest X-ray used only for education or research.")
 
 if uploaded is not None:
     try:
@@ -52,7 +50,7 @@ if uploaded is not None:
         st.stop()
     st.image(image, caption="Uploaded image", width=480)
 
-    if st.button("Run educational screening", type="primary", disabled=not confirmed):
+    if st.button("Run educational screening", type="primary"):
         result, overlay = predict_image(image, model, metadata, device="cpu")
         label = "Above the model threshold" if result.classification == "above_threshold" else "Below the model threshold"
         col1, col2 = st.columns(2)
